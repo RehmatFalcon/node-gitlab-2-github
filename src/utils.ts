@@ -4,6 +4,8 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import S3 from 'aws-sdk/clients/s3';
 import { GitlabHelper } from './gitlabHelper';
+import { Octokit } from '@octokit/rest';
+import { Organizations } from 'aws-sdk';
 
 export const sleep = (milliseconds: number) => {
   return new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -26,10 +28,13 @@ export const migrateAttachments = async (
   // Find all local links
   const matches = body.matchAll(regexp);
 
+  const originalAttachments:Array<string> = [];
+
   for (const match of matches) {
     const prefix = match[1] || '';
     const name = match[2];
     const url = match[3];
+    console.log("Has Bucket Setup", s3 && s3.bucket);
 
     if (s3 && s3.bucket) {
       const basename = path.basename(url);
@@ -80,10 +85,32 @@ export const migrateAttachments = async (
         ? gitlabHelper.host
         : gitlabHelper.host + '/';
       const attachmentUrl = host + gitlabHelper.projectPath + url;
+      console.log("Attachment URL", attachmentUrl);
+      originalAttachments.push(attachmentUrl);
+
       offsetToAttachment[
         match.index as number
       ] = `${prefix}[${name}](${attachmentUrl})`;
     }
+  }
+
+  if(originalAttachments.length > 0) {
+    body += ` <hr/>
+
+## Gitlab Attachments
+
+<details>
+  <summary>Click to open</summary>
+
+  ${originalAttachments.reduce((attachmentStr, attachment) => {
+    return attachmentStr + `
+
+- <a href="${attachment}" target="_blank">${attachment}</a>
+
+    `;
+  }, "")}
+</details>
+    `;
   }
 
   return body.replace(

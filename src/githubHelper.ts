@@ -430,10 +430,11 @@ export class GithubHelper {
     let bodyConverted = issue.isPlaceholder
       ? issue.description ?? ''
       : await this.convertIssuesAndComments(
-          issue.description ?? '',
+          (issue.description ?? '' + ` [ Cannonical URL: ${issue.web_url} ]`),
           issue,
           !this.userIsCreator(issue.author) || !issue.description
         );
+        console.log("XXXX Importing Issue", issue);
 
     let props: IssueImport = {
       title: issue.title ? issue.title.trim() : '',
@@ -1315,7 +1316,10 @@ export class GithubHelper {
       dateformatOptions
     );
 
-    const attribution = `In GitLab by @${item.author.username} on ${formattedDate}`;
+    let attribution = `In GitLab by @${item.author.username} on ${formattedDate}.`;
+    if(item.web_url) {
+      attribution += ` Cannonical URL: ` + item.web_url;
+    }
     const lineRef =
       item && item.position
         ? GithubHelper.createLineRef(item.position, repoLink)
